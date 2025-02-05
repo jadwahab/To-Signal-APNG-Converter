@@ -7,3 +7,13 @@ You’ll need to play with the parameters that show up there. Make a folder call
 Made for this thread: https://community.signalusers.org/t/animated-signal-stickers/59311?u=whatnoww
 
 If you can improve it please feel free to make a commit :)
+
+## Instructions
+Leave the convert.py file in a folder
+Create a subdirectory called conversion alongside the script
+Drop your files for conversion there.
+Run convert.py
+Converted APNG's will be dropped alongside convert.py
+
+## Dependencies
+You'll need to pip install PIL and APNG

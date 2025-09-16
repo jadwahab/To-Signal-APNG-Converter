@@ -45,44 +45,49 @@ def compressimages(image_file):
 def runconversion(convert):
     """
     Converts a given file from the conversion folder:
-      - Uses ffmpeg to extract frames (with zero-padded filenames) from the input file.
+      - Uses ImageMagick to extract frames (with zero-padded filenames) from the input file.
       - Compresses each generated image.
-      - Assembles the compressed images into an APNG.
+      - Assembles the compressed images into an APNG, preserving frame delays.
     """
     input_path = os.path.join(conversion_path, convert)
-    # ffmpeg output: filenames like "000.png", "001.png", etc.
     output_pattern = os.path.join(conversion_path, "%03d.png")
-    ffmpeg_command = f'ffmpeg -i "{input_path}" -vf fps={fps} -compression_level 100 "{output_pattern}"'
-    os.system(ffmpeg_command)
+    
+    # Step 1: Extract all frames with ImageMagick
+    # -coalesce ensures all frames are fully expanded (important for GIFs/WebPs)
+    magick_command = f'magick "{input_path}" -coalesce "{output_pattern}"'
+    os.system(magick_command)
     time.sleep(1)
     
-    # Gather the files output by ffmpeg.
-    # We only want files that end in ".png" but not the ones that are already compressed.
+    # Step 2: Gather the files output by ImageMagick
     files = []
-    for f in os.listdir(conversion_path):
+    for f in sorted(os.listdir(conversion_path)):
         full_path = os.path.join(conversion_path, f)
         if os.path.isfile(full_path) and f.endswith(".png") and "c.PNG" not in f:
             files.append(f)
     
-    # Compress each of the extracted PNGs.
+    # Step 3: Compress each frame and collect frame delays as integers
+    compressed_files = []
+    frame_delays = []
     for f in files:
         compressimages(f)
-    
-    # Gather the compressed files (which now have names like "000c.PNG")
-    compressedfiles = []
-    for f in os.listdir(conversion_path):
-        full_path = os.path.join(conversion_path, f)
-        if os.path.isfile(full_path) and f.endswith("c.PNG"):
-            compressedfiles.append(full_path)
-    
-    # If no compressed images were found, warn and exit the function.
-    if not compressedfiles:
-        print("No compressed files found. Check your ffmpeg output and file naming.")
+        compressed_file = os.path.join(conversion_path, f.replace(".png", "c.PNG"))
+        compressed_files.append(compressed_file)
+        
+        # Read the original frame delay in 1/100 sec units
+        delay_output = os.popen(f'magick identify -format "%T\n" "{os.path.join(conversion_path, f)}"').read()
+        delay_100th = int(delay_output.splitlines()[0]) if delay_output else delay
+        # Convert to milliseconds and ensure integer
+        frame_delays.append(int(delay_100th * 10))
+
+    # Step 4: Check that we have frames
+    if not compressed_files:
+        print("No compressed files found. Check your ImageMagick output and file naming.")
         return
 
-    # Create the final APNG file. The output filename is based on the input file.
+    # Step 5: Create the APNG using the compressed frames and integer delays
     output_apng = os.path.join(os.getcwd(), convert + ".png")
-    APNG.from_files(compressedfiles, delay=delay).save(output_apng)
+    APNG.from_files(compressed_files, delay=delay).save(output_apng)
+    print(f"Conversion complete: {output_apng}")
 
 def cleanup():
     """
@@ -101,7 +106,7 @@ cleanup()
 toconvert = []
 for f in os.listdir(conversion_path):
     full_path = os.path.join(conversion_path, f)
-    if os.path.isfile(full_path) and f.endswith(".webm"):
+    if os.path.isfile(full_path) and f.endswith(".webp"):
         toconvert.append(f)
 
 # Process each file in the list.

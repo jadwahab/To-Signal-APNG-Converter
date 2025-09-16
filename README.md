@@ -47,3 +47,8 @@ When finished
 ```
 deactivate
 ```
+
+
+
+
+fuck this shit, still outputs files over 300kb. not worth my time anymore.
